@@ -22,7 +22,22 @@
       <input type="text" id="input-name" maxlength="20" placeholder="Com et diuen a la taula?">
     </label>
 
-    <div class="lobby-actions">
+    <div id="mode-buttons" class="mode-buttons">
+      <button id="btn-mode-ai" class="btn-mode">
+        <span class="mode-title">🤖 Jugar contra la IA</span>
+        <span class="mode-desc">Tu sol contra 3 jugadors robot. Partida immediata.</span>
+      </button>
+      <button id="btn-mode-online" class="btn-mode">
+        <span class="mode-title">🌐 Jugar Online</span>
+        <span class="mode-desc">T'emparellem amb altres jugadors que busquin partida ara.</span>
+      </button>
+      <button id="btn-mode-private" class="btn-mode">
+        <span class="mode-title">🔒 Partida privada</span>
+        <span class="mode-desc">Crea una sala i comparteix el codi amb els teus amics.</span>
+      </button>
+    </div>
+
+    <div id="private-panel" class="lobby-actions" hidden>
       <button id="btn-create" class="btn btn-primary">Crear una sala</button>
       <div class="divider"><span>o</span></div>
       <label class="field">
@@ -30,13 +45,25 @@
         <input type="text" id="input-roomcode" maxlength="4" placeholder="AB12" autocapitalize="characters">
       </label>
       <button id="btn-join" class="btn btn-secondary">Unir-me a la sala</button>
+      <button id="btn-back-private" class="btn-link">← Tornar a les opcions</button>
     </div>
 
     <p id="lobby-error" class="error-msg" hidden></p>
   </div>
 </section>
 
-<!-- PANTALLA: SALA D'ESPERA -->
+<!-- PANTALLA: CERCANT PARTIDA ONLINE -->
+<section id="screen-queue" class="screen">
+  <div class="lobby-card">
+    <h2 class="waiting-title">Cercant partida…</h2>
+    <p class="tagline">T'afegirem a la taula en quant hi hagi 4 jugadors.</p>
+    <div class="spinner"></div>
+    <div class="queue-counter"><span id="queue-count">1</span> / 4 jugadors</div>
+    <button id="btn-cancel-queue" class="btn btn-secondary">Cancel·lar</button>
+  </div>
+</section>
+
+<!-- PANTALLA: SALA D'ESPERA (partida privada) -->
 <section id="screen-waiting" class="screen">
   <div class="lobby-card">
     <h2 class="waiting-title">Sala <span id="waiting-roomcode">----</span></h2>

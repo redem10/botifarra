@@ -45,6 +45,24 @@ function cardLabel(card) {
   return `${RANK_NAMES[card.rank]} de ${SUIT_NAMES[card.suit]}`;
 }
 
+// Determina quina jugada guanya una baça (parcial o completa)
+function trickWinner(trick, trumpSuit) {
+  let best = trick[0];
+  for (const play of trick.slice(1)) {
+    const bestIsTrump = trumpSuit && best.card.suit === trumpSuit;
+    const playIsTrump = trumpSuit && play.card.suit === trumpSuit;
+    if (playIsTrump && !bestIsTrump) {
+      best = play;
+    } else if (playIsTrump === bestIsTrump && play.card.suit === best.card.suit) {
+      if (cardStrength(play.card, trumpSuit) > cardStrength(best.card, trumpSuit)) best = play;
+    }
+  }
+  return best;
+}
+
+// Pes aproximat de cada carta per a l'heurística dels bots (força + valor)
+const BOT_CARD_WEIGHT = { 1: 6, 9: 5, 12: 3, 11: 2, 10: 1, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0 };
+
 // Valors de cant possibles (punts que es comprometen a fer)
 const BID_VALUES = [16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60];
 
@@ -81,10 +99,10 @@ class BotifarraGame {
     return this.players.every(p => p);
   }
 
-  addPlayer(id, name) {
+  addPlayer(id, name, isBot = false) {
     const emptySeat = this.players.findIndex(p => !p);
     if (emptySeat === -1) return -1;
-    this.players[emptySeat] = { id, name, connected: true };
+    this.players[emptySeat] = { id, name, connected: true, isBot };
     return emptySeat;
   }
 
@@ -254,17 +272,7 @@ class BotifarraGame {
   }
 
   currentWinningCard() {
-    let best = this.trick[0];
-    for (const play of this.trick.slice(1)) {
-      const bestIsTrump = this.trumpSuit && best.card.suit === this.trumpSuit;
-      const playIsTrump = this.trumpSuit && play.card.suit === this.trumpSuit;
-      if (playIsTrump && !bestIsTrump) {
-        best = play;
-      } else if (playIsTrump === bestIsTrump && play.card.suit === best.card.suit) {
-        if (cardStrength(play.card, this.trumpSuit) > cardStrength(best.card, this.trumpSuit)) best = play;
-      }
-    }
-    return best;
+    return trickWinner(this.trick, this.trumpSuit);
   }
 
   playCard(seat, cardId) {
@@ -340,12 +348,108 @@ class BotifarraGame {
     return { ok: true };
   }
 
+  // ---------- Lògica de bots ----------
+
+  // Puntuació aproximada de cada pal en una mà, per decidir cants i trumfo
+  _suitScores(seat) {
+    const hand = this.hands[seat];
+    const scores = { oros: 0, copes: 0, espases: 0, bastos: 0 };
+    const counts = { oros: 0, copes: 0, espases: 0, bastos: 0 };
+    for (const card of hand) {
+      scores[card.suit] += BOT_CARD_WEIGHT[card.rank];
+      counts[card.suit] += 1;
+    }
+    let bestSuit = SUITS[0];
+    let bestValue = -Infinity;
+    const combined = {};
+    for (const suit of SUITS) {
+      combined[suit] = scores[suit] + counts[suit] * 1.5;
+      if (combined[suit] > bestValue) { bestValue = combined[suit]; bestSuit = suit; }
+    }
+    const handPoints = hand.reduce((s, c) => s + CARD_POINTS[c.rank], 0);
+    return { bestSuit, bestValue, handPoints };
+  }
+
+  _botBid(seat) {
+    const b = this.bidding;
+    const { bestValue, handPoints } = this._suitScores(seat);
+    const strength = bestValue + handPoints * 0.4;
+
+    if (b.highestBid && b.highestBid.botifarra) {
+      this.placeBid(seat, 'pass');
+      return;
+    }
+
+    const rawTarget = 14 + Math.round(strength * 2.6);
+    let suggested = null;
+    for (const v of BID_VALUES) {
+      if (v >= rawTarget) { suggested = v; break; }
+    }
+
+    const currentMax = b.highestBid ? b.highestBid.value : 0;
+    if (suggested && suggested > currentMax && strength >= 6) {
+      this.placeBid(seat, 'bid', suggested);
+    } else {
+      this.placeBid(seat, 'pass');
+    }
+  }
+
+  _botChooseTrump(seat) {
+    if (this.contract.botifarra) {
+      this.chooseTrump(seat, null);
+      return;
+    }
+    const { bestSuit } = this._suitScores(seat);
+    this.chooseTrump(seat, bestSuit);
+  }
+
+  _botPlayCard(seat) {
+    const hand = this.hands[seat];
+    const legal = new Set(this.legalCards(seat));
+    const options = hand.filter(c => legal.has(c.id));
+    if (options.length === 0) return;
+
+    let chosen;
+    if (this.trick.length === 0) {
+      // Surt: juga la carta amb menys punts per no regalar-ne
+      chosen = options.slice().sort((a, b) => CARD_POINTS[a.rank] - CARD_POINTS[b.rank])[0];
+    } else {
+      const winners = options.filter(c => {
+        const hypothetical = this.trick.concat([{ seat, card: c }]);
+        return trickWinner(hypothetical, this.trumpSuit).seat === seat;
+      });
+      if (winners.length > 0) {
+        // Guanya la baça gastant el menys possible
+        chosen = winners.sort((a, b) => cardStrength(a, this.trumpSuit) - cardStrength(b, this.trumpSuit))[0];
+      } else {
+        // No pot guanyar: descarta la carta de menys valor
+        chosen = options.slice().sort((a, b) => CARD_POINTS[a.rank] - CARD_POINTS[b.rank])[0];
+      }
+    }
+    this.playCard(seat, chosen.id);
+  }
+
+  // Si toca a un bot, fa la seva jugada i retorna true. Si no, retorna false.
+  performBotTurn() {
+    if (this.phase === 'bidding') {
+      const seat = this.bidding.turn;
+      if (this.players[seat] && this.players[seat].isBot) { this._botBid(seat); return true; }
+    } else if (this.phase === 'choose-trump') {
+      const seat = this.contract.seat;
+      if (this.players[seat] && this.players[seat].isBot) { this._botChooseTrump(seat); return true; }
+    } else if (this.phase === 'playing') {
+      const seat = this.currentTurn;
+      if (this.players[seat] && this.players[seat].isBot) { this._botPlayCard(seat); return true; }
+    }
+    return false;
+  }
+
   // Estat serialitzat per a un jugador concret (amaga les mans dels altres)
   stateFor(seat) {
     return {
       roomCode: this.roomCode,
       phase: this.phase,
-      players: this.players.map(p => p ? { name: p.name, connected: p.connected } : null),
+      players: this.players.map(p => p ? { name: p.name, connected: p.connected, isBot: !!p.isBot } : null),
       mySeat: seat,
       myHand: seat != null && this.hands[seat] ? this.hands[seat] : [],
       handCounts: this.hands.map(h => h.length),

@@ -12,6 +12,8 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const rooms = new Map(); // roomCode -> BotifarraGame
+const waitingQueue = []; // clients esperant partida "Jugar Online"
+const BOT_NAMES = ['Robot Nord', 'Robot Est', 'Robot Sud'];
 
 function makeRoomCode() {
   let code;
@@ -37,6 +39,28 @@ function sendError(ws, message) {
   send(ws, { type: 'error', message });
 }
 
+function broadcastQueueStatus() {
+  waitingQueue.forEach((client, idx) => {
+    send(client, { type: 'queueStatus', count: waitingQueue.length, needed: 4 });
+  });
+}
+
+function removeFromQueue(ws) {
+  const idx = waitingQueue.indexOf(ws);
+  if (idx !== -1) {
+    waitingQueue.splice(idx, 1);
+    ws.inQueue = false;
+    broadcastQueueStatus();
+  }
+}
+
+// Fa jugar els bots en cadena (amb una petita pausa perquè es vegi natural) fins que torni a tocar a un humà
+function runBots(game) {
+  if (!game.performBotTurn()) return;
+  broadcast(game);
+  setTimeout(() => runBots(game), 600 + Math.random() * 500);
+}
+
 wss.on('connection', (ws) => {
   ws.roomCode = null;
   ws.seat = null;
@@ -59,6 +83,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    if (ws.inQueue) removeFromQueue(ws);
     if (ws.roomCode && rooms.has(ws.roomCode)) {
       const game = rooms.get(ws.roomCode);
       game.removePlayerBySocket(ws.playerId);
@@ -74,6 +99,46 @@ function handleMessage(ws, msg) {
       const game = new BotifarraGame(roomCode);
       rooms.set(roomCode, game);
       joinRoom(ws, game, msg.name);
+      break;
+    }
+    case 'quickAI': {
+      const roomCode = makeRoomCode();
+      const game = new BotifarraGame(roomCode);
+      rooms.set(roomCode, game);
+      joinRoom(ws, game, msg.name);
+      BOT_NAMES.forEach((botName) => {
+        game.addPlayer(`bot-${roomCode}-${botName}`, botName, true);
+      });
+      game.startDeal();
+      broadcast(game);
+      runBots(game);
+      break;
+    }
+    case 'queueOnline': {
+      ws.playerName = (msg.name || 'Jugador').slice(0, 20);
+      ws.inQueue = true;
+      waitingQueue.push(ws);
+      broadcastQueueStatus();
+      if (waitingQueue.length >= 4) {
+        const four = waitingQueue.splice(0, 4);
+        const roomCode = makeRoomCode();
+        const game = new BotifarraGame(roomCode);
+        rooms.set(roomCode, game);
+        four.forEach((client) => {
+          client.inQueue = false;
+          const seat = game.addPlayer(client.playerId, client.playerName);
+          client.roomCode = roomCode;
+          client.seat = seat;
+          send(client, { type: 'joined', roomCode, seat });
+        });
+        game.startDeal();
+        broadcast(game);
+        runBots(game);
+      }
+      break;
+    }
+    case 'cancelQueue': {
+      removeFromQueue(ws);
       break;
     }
     case 'join': {
@@ -102,6 +167,7 @@ function handleMessage(ws, msg) {
       const result = game.placeBid(ws.seat, msg.action, msg.value);
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
+      runBots(game);
       break;
     }
     case 'chooseTrump': {
@@ -110,6 +176,7 @@ function handleMessage(ws, msg) {
       const result = game.chooseTrump(ws.seat, msg.suit);
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
+      runBots(game);
       break;
     }
     case 'playCard': {
@@ -118,6 +185,7 @@ function handleMessage(ws, msg) {
       const result = game.playCard(ws.seat, msg.cardId);
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
+      runBots(game);
       break;
     }
     case 'startGame': {
@@ -127,6 +195,7 @@ function handleMessage(ws, msg) {
       if (game.phase !== 'waiting') return sendError(ws, 'La partida ja ha començat.');
       game.startDeal();
       broadcast(game);
+      runBots(game);
       break;
     }
     case 'nextDeal': {
@@ -135,6 +204,7 @@ function handleMessage(ws, msg) {
       const result = game.nextDeal();
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
+      runBots(game);
       break;
     }
     default:

@@ -41,6 +41,11 @@ function handleServerMessage(msg) {
     $('waiting-roomcode').textContent = msg.roomCode;
     return;
   }
+  if (msg.type === 'queueStatus') {
+    $('queue-count').textContent = msg.count;
+    if (!$('screen-queue').classList.contains('active')) showScreen('screen-queue');
+    return;
+  }
   if (msg.type === 'state') {
     latestState = msg.state;
     render(latestState);
@@ -57,18 +62,55 @@ function showToast(text) {
 }
 
 // ---------- LOBBY ACTIONS ----------
-$('btn-create').addEventListener('click', async () => {
+function getMyName() {
   myName = $('input-name').value.trim();
-  if (!myName) return showLobbyError('Escriu el teu nom primer.');
+  return myName;
+}
+
+$('btn-mode-ai').addEventListener('click', async () => {
+  if (!getMyName()) return showLobbyError('Escriu el teu nom primer.');
+  hideLobbyError();
+  await ensureConnected();
+  send({ type: 'quickAI', name: myName });
+});
+
+$('btn-mode-online').addEventListener('click', async () => {
+  if (!getMyName()) return showLobbyError('Escriu el teu nom primer.');
+  hideLobbyError();
+  await ensureConnected();
+  $('queue-count').textContent = '1';
+  showScreen('screen-queue');
+  send({ type: 'queueOnline', name: myName });
+});
+
+$('btn-cancel-queue').addEventListener('click', () => {
+  send({ type: 'cancelQueue' });
+  showScreen('screen-lobby');
+});
+
+$('btn-mode-private').addEventListener('click', () => {
+  $('mode-buttons').hidden = true;
+  $('private-panel').hidden = false;
+});
+
+$('btn-back-private').addEventListener('click', () => {
+  $('mode-buttons').hidden = false;
+  $('private-panel').hidden = true;
+});
+
+$('btn-create').addEventListener('click', async () => {
+  if (!getMyName()) return showLobbyError('Escriu el teu nom primer.');
+  hideLobbyError();
   await ensureConnected();
   send({ type: 'create', name: myName });
 });
 
 $('btn-join').addEventListener('click', async () => {
-  myName = $('input-name').value.trim();
+  getMyName();
   const roomCode = $('input-roomcode').value.trim().toUpperCase();
   if (!myName) return showLobbyError('Escriu el teu nom primer.');
   if (!roomCode) return showLobbyError('Escriu el codi de la sala.');
+  hideLobbyError();
   await ensureConnected();
   send({ type: 'join', name: myName, roomCode });
 });
@@ -77,6 +119,9 @@ function showLobbyError(text) {
   const el = $('lobby-error');
   el.textContent = text;
   el.hidden = false;
+}
+function hideLobbyError() {
+  $('lobby-error').hidden = true;
 }
 
 async function ensureConnected() {
@@ -111,7 +156,8 @@ function renderWaiting(state) {
   state.players.forEach((p, i) => {
     const li = document.createElement('li');
     li.className = p ? 'filled' : '';
-    li.innerHTML = `<span class="dot"></span><span class="seat-num">Seient ${i + 1}</span><span>${p ? p.name : 'Buit'}</span>`;
+    const label = p ? `${p.isBot ? '🤖 ' : ''}${p.name}` : 'Buit';
+    li.innerHTML = `<span class="dot"></span><span class="seat-num">Seient ${i + 1}</span><span>${label}</span>`;
     list.appendChild(li);
   });
   const full = state.players.every(p => p);
@@ -159,7 +205,7 @@ function renderTable(state) {
     const isDealer = state.dealerSeat === seat;
     tag.classList.toggle('active-turn', isTurn);
     const nameSpan = tag.querySelector('.seat-name');
-    let label = p ? p.name : `Seient ${seat + 1}`;
+    let label = p ? `${p.isBot ? '🤖 ' : ''}${p.name}` : `Seient ${seat + 1}`;
     if (isDealer) label += ' 🃏';
     if (p && !p.connected) label = `<span class="disconnected">${label} (fora)</span>`;
     nameSpan.innerHTML = label + (state.dealerSeat === seat ? '' : '');
