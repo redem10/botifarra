@@ -88,6 +88,7 @@ class BotifarraGame {
     this.currentTrickLeader = null;
     this.currentTurn = null;
     this.trick = [];
+    this.pendingTrick = null;
     this.tricksWon = [[], []];
     this.teamScore = [0, 0];
     this.dealPoints = [0, 0];
@@ -149,6 +150,7 @@ class BotifarraGame {
     this.doublingEligible = [];
     this.doublingResponded = [];
     this.trick = [];
+    this.pendingTrick = null;
     this.tricksWon = [[], []];
     this.dealPoints = [0, 0];
     this.lastDealSummary = null;
@@ -290,23 +292,38 @@ class BotifarraGame {
       return { ok: true };
     }
 
+    // Baça completa: la deixem visible (fase de pausa) i no l'esborrem ni sumem punts encara.
+    // resolveTrick() farà l'esborrat i el recompte real un cop passada la pausa visual.
     const winner = trickWinner(this.trick, this.trumpSuit);
     const team = winner.seat % 2;
     const points = this.trick.reduce((s, p) => s + CARD_POINTS[p.card.rank], 0) + 1;
-    this.dealPoints[team] += points;
-    this.tricksWon[team].push(this.trick);
+    const isLastTrick = this.hands.every(h => h.length === 0);
     this.addLog(`Seient ${winner.seat + 1} guanya la baça (${points} punts).`);
 
-    const isLastTrick = this.hands.every(h => h.length === 0);
+    this.pendingTrick = { winnerSeat: winner.seat, team, points, isLastTrick };
+    this.phase = 'trick-pause';
+    this.currentTurn = null;
+    return { ok: true, trickComplete: true };
+  }
+
+  // Es crida (des del servidor, després d'una pausa) per netejar la baça i avançar la partida.
+  resolveTrick() {
+    if (this.phase !== 'trick-pause' || !this.pendingTrick) return { error: 'No hi ha cap baça pendent.' };
+    const { winnerSeat, team, points, isLastTrick } = this.pendingTrick;
+
+    this.dealPoints[team] += points;
+    this.tricksWon[team].push(this.trick);
+    this.trick = [];
+    this.pendingTrick = null;
+
     if (isLastTrick) {
-      this.trick = [];
       this.finishDeal();
       return { ok: true, dealFinished: true };
     }
 
-    this.trick = [];
-    this.currentTrickLeader = winner.seat;
-    this.currentTurn = winner.seat;
+    this.phase = 'playing';
+    this.currentTrickLeader = winnerSeat;
+    this.currentTurn = winnerSeat;
     return { ok: true };
   }
 

@@ -5,10 +5,6 @@ const RANK_LABEL = { 1: 'As', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8:
 let ws = null;
 let myName = '';
 let latestState = null;
-let currentTrickCount = 0;
-let holdTimer = null;
-let pendingState = null;
-const TRICK_HOLD_MS = 1400;
 
 const $ = (id) => document.getElementById(id);
 
@@ -51,29 +47,8 @@ function handleServerMessage(msg) {
     return;
   }
   if (msg.type === 'state') {
-    const newState = msg.state;
-    const trickJustCompleted = currentTrickCount === 4
-      && (newState.trick || []).length < 4
-      && (newState.phase === 'playing' || newState.phase === 'scoring');
-
-    if (trickJustCompleted) {
-      pendingState = newState;
-      if (!holdTimer) {
-        holdTimer = setTimeout(() => {
-          holdTimer = null;
-          const s = pendingState;
-          pendingState = null;
-          currentTrickCount = (s.trick || []).length;
-          latestState = s;
-          render(s);
-        }, TRICK_HOLD_MS);
-      }
-      return;
-    }
-
-    currentTrickCount = (newState.trick || []).length;
-    latestState = newState;
-    render(newState);
+    latestState = msg.state;
+    render(latestState);
   }
 }
 

@@ -14,6 +14,7 @@ const wss = new WebSocket.Server({ server });
 const rooms = new Map(); // roomCode -> BotifarraGame
 const waitingQueue = []; // clients esperant partida "Jugar Online"
 const BOT_NAMES = ['Robot Nord', 'Robot Est', 'Robot Sud'];
+const TRICK_PAUSE_MS = 1400; // temps que es queda visible una baça completa abans de netejar-la
 
 function makeRoomCode() {
   let code;
@@ -56,8 +57,24 @@ function removeFromQueue(ws) {
 
 // Fa jugar els bots en cadena (amb una petita pausa perquè es vegi natural) fins que torni a tocar a un humà
 function runBots(game) {
+  if (game.phase === 'trick-pause') {
+    setTimeout(() => {
+      game.resolveTrick();
+      broadcast(game);
+      runBots(game);
+    }, TRICK_PAUSE_MS);
+    return;
+  }
   if (!game.performBotTurn()) return;
   broadcast(game);
+  if (game.phase === 'trick-pause') {
+    setTimeout(() => {
+      game.resolveTrick();
+      broadcast(game);
+      runBots(game);
+    }, TRICK_PAUSE_MS);
+    return;
+  }
   setTimeout(() => runBots(game), 600 + Math.random() * 500);
 }
 
@@ -188,7 +205,16 @@ function handleMessage(ws, msg) {
       const result = game.playCard(ws.seat, msg.cardId);
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
-      runBots(game);
+      if (result.trickComplete) {
+        // Deixem la baça completa visible una estona abans de netejar-la i continuar
+        setTimeout(() => {
+          game.resolveTrick();
+          broadcast(game);
+          runBots(game);
+        }, TRICK_PAUSE_MS);
+      } else {
+        runBots(game);
+      }
       break;
     }
     case 'startGame': {
