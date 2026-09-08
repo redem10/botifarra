@@ -270,7 +270,11 @@ function renderTable(state) {
 function makeCardEl(card, big) {
   const el = document.createElement('div');
   el.className = `card suit-${card.suit}`;
-  el.innerHTML = `<span class="rank">${RANK_LABEL[card.rank]}</span><span class="suit-icon">${SUIT_ICON[card.suit]}</span>`;
+  const img = document.createElement('img');
+  img.src = `cards/${card.suit}-${card.rank}.png`;
+  img.alt = `${RANK_LABEL[card.rank]} de ${SUIT_NAME[card.suit]}`;
+  img.draggable = false;
+  el.appendChild(img);
   return el;
 }
 
