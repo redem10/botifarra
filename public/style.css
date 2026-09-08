@@ -345,9 +345,9 @@ body {
 
 .trick-area .played-card { position: relative; }
 .trick-area .played-card.pos-0 { grid-area: bottom; }
-.trick-area .played-card.pos-1 { grid-area: left; }
+.trick-area .played-card.pos-1 { grid-area: right; }
 .trick-area .played-card.pos-2 { grid-area: top; }
-.trick-area .played-card.pos-3 { grid-area: right; }
+.trick-area .played-card.pos-3 { grid-area: left; }
 
 .seat {
   position: absolute;

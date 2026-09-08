@@ -200,7 +200,8 @@ function renderTable(state) {
   }
 
   // Seats: posicions relatives
-  const posOrder = ['bottom', 'left', 'top', 'right'];
+  // Mapeja seients relatius: 0=jo(bottom), 1=el de la meva dreta, 2=el meu company(top), 3=el de la meva esquerra
+  const posOrder = ['bottom', 'right', 'top', 'left'];
   for (let seat = 0; seat < 4; seat++) {
     const rel = relativePos(mySeat, seat);
     const posName = posOrder[rel];
