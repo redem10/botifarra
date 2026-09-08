@@ -184,16 +184,15 @@ function relativePos(mySeat, seat) {
 function renderTable(state) {
   const mySeat = state.mySeat;
 
-  const GAME_TARGET = 101;
   const myTeam = mySeat % 2;
-  $('score-a').textContent = state.teamScore[0];
-  $('score-b').textContent = state.teamScore[1];
-  $('label-team-a').textContent = myTeam === 0 ? 'El teu equip · 1r i 3r' : 'Equip contrari · 1r i 3r';
-  $('label-team-b').textContent = myTeam === 1 ? 'El teu equip · 2n i 4t' : 'Equip contrari · 2n i 4t';
-  $('remaining-a').textContent = state.teamScore[0] >= GAME_TARGET ? 'Guanyadors!' : `falten ${GAME_TARGET - state.teamScore[0]}`;
-  $('remaining-b').textContent = state.teamScore[1] >= GAME_TARGET ? 'Guanyadors!' : `falten ${GAME_TARGET - state.teamScore[1]}`;
-  $('pill-team-a').classList.toggle('is-you', myTeam === 0);
-  $('pill-team-b').classList.toggle('is-you', myTeam === 1);
+  const myScore = state.teamScore[myTeam];
+  const theirScore = state.teamScore[1 - myTeam];
+  $('label-team-a').textContent = 'Nosaltres';
+  $('label-team-b').textContent = 'Ells';
+  $('score-a').textContent = myScore;
+  $('score-b').textContent = theirScore;
+  $('pill-team-a').classList.add('is-you');
+  $('pill-team-b').classList.remove('is-you');
   $('deal-number').textContent = `Mà ${state.dealNumber}`;
 
   const trumpEl = $('trump-indicator');

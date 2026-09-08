@@ -276,7 +276,6 @@ body {
 .score-pill.is-you { box-shadow: 0 0 0 2px var(--gold); }
 .team-label { font-size: 0.62rem; text-transform: none; color: var(--text-soft); }
 .team-points { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
-.team-remaining { font-size: 0.62rem; color: var(--text-soft); }
 
 .deal-info {
   display: flex;
