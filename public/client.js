@@ -184,8 +184,16 @@ function relativePos(mySeat, seat) {
 function renderTable(state) {
   const mySeat = state.mySeat;
 
+  const GAME_TARGET = 101;
+  const myTeam = mySeat % 2;
   $('score-a').textContent = state.teamScore[0];
   $('score-b').textContent = state.teamScore[1];
+  $('label-team-a').textContent = myTeam === 0 ? 'El teu equip · 1r i 3r' : 'Equip contrari · 1r i 3r';
+  $('label-team-b').textContent = myTeam === 1 ? 'El teu equip · 2n i 4t' : 'Equip contrari · 2n i 4t';
+  $('remaining-a').textContent = state.teamScore[0] >= GAME_TARGET ? 'Guanyadors!' : `falten ${GAME_TARGET - state.teamScore[0]}`;
+  $('remaining-b').textContent = state.teamScore[1] >= GAME_TARGET ? 'Guanyadors!' : `falten ${GAME_TARGET - state.teamScore[1]}`;
+  $('pill-team-a').classList.toggle('is-you', myTeam === 0);
+  $('pill-team-b').classList.toggle('is-you', myTeam === 1);
   $('deal-number').textContent = `Mà ${state.dealNumber}`;
 
   const trumpEl = $('trump-indicator');
@@ -329,8 +337,9 @@ function renderGameOver(state) {
   if (state.phase !== 'finished') { panel.hidden = true; return; }
   $('deal-result-panel').hidden = true;
   panel.hidden = false;
-  const teamName = state.winningTeam === 0 ? 'Equip A (1r i 3r)' : 'Equip B (2n i 4t)';
-  $('game-over-text').textContent = `Guanya l'${teamName} amb ${state.teamScore[state.winningTeam]} punts.`;
+  const youWon = state.winningTeam === (state.mySeat % 2);
+  $('game-over-title').textContent = youWon ? 'Heu guanyat! 🎉' : 'Heu perdut';
+  $('game-over-text').textContent = `${youWon ? 'El teu equip' : 'L\'equip contrari'} arriba als ${state.teamScore[state.winningTeam]} punts.`;
 }
 
 function renderLog(state) {
