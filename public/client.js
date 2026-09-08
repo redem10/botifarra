@@ -134,9 +134,14 @@ $('btn-next-deal').addEventListener('click', () => send({ type: 'nextDeal' }));
 $('btn-log-toggle').addEventListener('click', () => { $('log-panel').hidden = false; });
 $('btn-log-close').addEventListener('click', () => { $('log-panel').hidden = true; });
 
-document.querySelectorAll('.suit-btn').forEach(btn => {
-  btn.addEventListener('click', () => send({ type: 'chooseTrump', suit: btn.dataset.suit }));
+document.querySelectorAll('.suit-btn[data-suit]').forEach(btn => {
+  btn.addEventListener('click', () => send({ type: 'chooseTrump', action: 'suit', suit: btn.dataset.suit }));
 });
+$('btn-botifarra').addEventListener('click', () => send({ type: 'chooseTrump', action: 'botifarra' }));
+$('btn-delegate').addEventListener('click', () => send({ type: 'chooseTrump', action: 'delegate' }));
+
+$('btn-double-yes').addEventListener('click', () => send({ type: 'respondDouble', double: true }));
+$('btn-double-no').addEventListener('click', () => send({ type: 'respondDouble', double: false }));
 
 // ---------- RENDER ----------
 function render(state) {
@@ -201,7 +206,9 @@ function renderTable(state) {
     const posName = posOrder[rel];
     const tag = $(`tag-${posName}`);
     const p = state.players[seat];
-    const isTurn = state.phase === 'playing' && state.currentTurn === seat;
+    const isTurn = (state.phase === 'playing' && state.currentTurn === seat) ||
+      (state.phase === 'trump-choice' && state.trumpChooserSeat === seat) ||
+      (state.phase === 'doubling' && (state.doublingEligible || []).includes(seat) && !(state.doublingResponded || []).includes(seat));
     const isDealer = state.dealerSeat === seat;
     tag.classList.toggle('active-turn', isTurn);
     const nameSpan = tag.querySelector('.seat-name');
@@ -252,8 +259,8 @@ function renderTable(state) {
     handEl.appendChild(el);
   });
 
-  renderBidding(state, mySeat);
   renderTrumpChoice(state, mySeat);
+  renderDoubling(state, mySeat);
   renderDealResult(state);
   renderGameOver(state);
   renderLog(state);
@@ -266,57 +273,42 @@ function makeCardEl(card, big) {
   return el;
 }
 
-function renderBidding(state, mySeat) {
-  const panel = $('bid-panel');
-  if (state.phase !== 'bidding') { panel.hidden = true; return; }
-  panel.hidden = false;
-
-  const b = state.bidding;
-  const isMyTurn = b.turn === mySeat;
-  const statusEl = $('bid-status');
-  if (b.highestBid) {
-    const who = seatLabel(state, b.highestBid.seat);
-    statusEl.textContent = b.highestBid.botifarra
-      ? `${who} ha cantat Botifarra.`
-      : `${who} porta el cant més alt: ${b.highestBid.value}.`;
-  } else {
-    statusEl.textContent = 'Ningú ha cantat encara.';
-  }
-  statusEl.textContent += isMyTurn ? ' És el teu torn.' : ` Torn de ${seatLabel(state, b.turn)}.`;
-
-  const opts = $('bid-options');
-  opts.innerHTML = '';
-  if (!isMyTurn) return;
-
-  const passBtn = document.createElement('button');
-  passBtn.className = 'bid-btn pass';
-  passBtn.textContent = 'Passar';
-  passBtn.addEventListener('click', () => send({ type: 'bid', action: 'pass' }));
-  opts.appendChild(passBtn);
-
-  const minVal = b.highestBid && !b.highestBid.botifarra ? b.highestBid.value : 0;
-  const canBotifarra = !(b.highestBid && b.highestBid.botifarra);
-  state.bidValues.filter(v => v > minVal).forEach(v => {
-    const btn = document.createElement('button');
-    btn.className = 'bid-btn';
-    btn.textContent = v;
-    btn.addEventListener('click', () => send({ type: 'bid', action: 'bid', value: v }));
-    opts.appendChild(btn);
-  });
-
-  if (canBotifarra) {
-    const bf = document.createElement('button');
-    bf.className = 'bid-btn botifarra';
-    bf.textContent = 'Botifarra (totes les baces)';
-    bf.addEventListener('click', () => send({ type: 'bid', action: 'botifarra' }));
-    opts.appendChild(bf);
-  }
-}
-
 function renderTrumpChoice(state, mySeat) {
   const panel = $('trump-panel');
-  const shouldShow = state.phase === 'choose-trump' && state.contract && state.contract.seat === mySeat && !state.contract.botifarra;
-  panel.hidden = !shouldShow;
+  if (state.phase !== 'trump-choice') { panel.hidden = true; return; }
+  const isMyChoice = state.trumpChooserSeat === mySeat;
+  panel.hidden = !isMyChoice;
+  if (!isMyChoice) {
+    $('trump-status').textContent = `${seatLabel(state, state.trumpChooserSeat)} està triant el trumfo…`;
+    return;
+  }
+  $('trump-status').textContent = state.canDelegate
+    ? 'Ets el repartidor: tria un pal de trumfo, canta Botifarra, o delega la tria al teu company.'
+    : 'El teu company t\'ha delegat la tria: has de triar un pal o Botifarra (ja no es pot tornar a delegar).';
+  $('btn-delegate').style.display = state.canDelegate ? '' : 'none';
+}
+
+function renderDoubling(state, mySeat) {
+  const panel = $('double-panel');
+  if (state.phase !== 'doubling') { panel.hidden = true; return; }
+
+  const eligible = state.doublingEligible || [];
+  const responded = state.doublingResponded || [];
+  const isEligible = eligible.includes(mySeat) && !responded.includes(mySeat);
+  panel.hidden = !isEligible;
+  if (!isEligible) return;
+
+  const stageLabels = { contro: 'Contro', recontro: 'Recontro', santvicenc: 'Sant Vicenç' };
+  const stageLabel = stageLabels[state.doublingStage] || 'Doblar';
+  $('double-title').textContent = stageLabel;
+
+  const explain = {
+    contro: 'L\'equip contrari ha triomfat. Voleu doblar el valor de la mà (Contro)?',
+    recontro: 'L\'equip contrari ha cantat Contro. Voleu tornar a doblar (Recontro)?',
+    santvicenc: 'S\'ha cantat Recontro. Voleu doblar un cop més (Sant Vicenç)?'
+  };
+  $('double-status').textContent = explain[state.doublingStage] || '';
+  $('btn-double-yes').textContent = `Sí, cantar ${stageLabel}!`;
 }
 
 let lastAckedDeal = -1;
@@ -324,8 +316,7 @@ function renderDealResult(state) {
   const panel = $('deal-result-panel');
   if (state.phase !== 'scoring') { panel.hidden = true; return; }
   panel.hidden = false;
-  const lastLog = state.log[state.log.length - 1] || '';
-  $('deal-result-text').textContent = lastLog;
+  $('deal-result-text').textContent = state.lastDealSummary || (state.log[state.log.length - 1] || '');
 }
 
 function renderGameOver(state) {

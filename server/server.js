@@ -162,18 +162,21 @@ function handleMessage(ws, msg) {
       break;
     }
     case 'bid': {
+      return sendError(ws, 'Aquest missatge ja no s\'utilitza.');
+    }
+    case 'chooseTrump': {
       const game = getGame(ws);
       if (!game) return;
-      const result = game.placeBid(ws.seat, msg.action, msg.value);
+      const result = game.chooseTrump(ws.seat, msg.action, msg.suit);
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
       runBots(game);
       break;
     }
-    case 'chooseTrump': {
+    case 'respondDouble': {
       const game = getGame(ws);
       if (!game) return;
-      const result = game.chooseTrump(ws.seat, msg.suit);
+      const result = game.respondDouble(ws.seat, !!msg.double);
       if (result.error) return sendError(ws, result.error);
       broadcast(game);
       runBots(game);

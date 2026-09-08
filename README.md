@@ -25,13 +25,18 @@ Necessites un host que executi Node.js de manera persistent i permeti WebSockets
 
 Un cop desplegat, comparteix la URL i el codi de sala amb els altres tres jugadors.
 
-## Regles implementades
+## Regles implementades (regles tradicionals catalanes)
 
-- Repartiment de 12 cartes per jugador (48 cartes: oros, copes, espases, bastos, de l'1 al 12).
-- Cants per torns (16 a 60, o "Botifarra" per comprometre's a guanyar totes les baces), amb el jugador guanyador triant el trumfo.
-- Obligació de seguir el pal i de matar amb trumfo quan no es pot seguir (regla simplificada: sempre cal pujar si es pot).
-- Puntuació: si l'equip que ha cantat arriba als punts promesos, se'ls emporta (o els 120 si era Botifarra) més els punts que faci l'altre equip; si falla, tots els punts (els seus i el compromís) van a l'equip contrari.
-- Partida a 101 punts.
+Fonts consultades: pagat.com/manille/botifarc.html, cccj.es/reglaments/botifarra.htm i en.wikipedia.org/wiki/Botifarra_(card_game).
+
+- **Baralla i valor de les cartes**: 48 cartes espanyoles. Dins de cada pal, l'ordre de força és **9 (Manilla), As, Rei, Cavall, Sota, 8, 7, 6, 5, 4, 3, 2** — el mateix ordre tant si el pal és trumfo com si no ho és; el trumfo simplement guanya sempre a la resta de pals.
+- **Punts**: Manilla=5, As=4, Rei=3, Cavall=2, Sota=1 (la resta 0), + 1 punt per cada basa guanyada. Total: **72 punts per mà**.
+- **Triar trumfo**: el repartidor tria un pal, canta **Botifarra** (mà sense trumfo), o **delega** l'elecció al seu company (que ja no podrà tornar a delegar).
+- **Dobles**: un cop triat el trumfo, l'equip contrari pot cantar **Contro** (doblar el valor de la mà); si ho fa, l'equip que ha triomfat pot **Recontrar**; si es recontra i no és botifarra, l'equip contrari pot fer **Sant Vicenç**. Una mà de Botifarra ja duplica el valor per si mateixa; els dobles addicionals es multipliquen (fins a x16 si es canten tots).
+- **Obligació de jugar**: cal servir el pal de sortida si es pot; si guanya un contrari, cal superar-lo si és possible (seguint pal amb una carta més alta, o trumfant si no es té el pal); si guanya el propi company, només cal servir, sense obligació de pujar.
+- **Puntuació de la mà**: l'equip que supera els 36 punts (la meitat de 72) s'anota l'excés multiplicat pels dobles cantats. Empat a 36-36: ningú s'anota la mà.
+- **Fi de partida**: la partida es juga a 101 punts.
+- Els bots de la IA sempre passen en la fase de dobles (mai canten Contro/Recontro/Sant Vicenç) per mantenir un comportament predictible; els jugadors humans sí que hi poden jugar amb normalitat.
 - Reconnexió bàsica: si algú perd la connexió i torna a entrar amb el mateix nom i codi de sala, recupera el seu seient.
 
-Nota: les regles de la botifarra varien una mica segons la colla i la zona (per exemple, el "renuncio" no està implementat). Si vols ajustar algun detall (valors de cant, punts per guanyar la partida, etc.), es pot retocar fàcilment a `server/game.js`.
+Nota: existeixen variants regionals (occidental/oriental) amb petites diferències en l'obligació de jugar carta de valor quan no es pot guanyar; aquesta implementació segueix la variant occidental (la que s'aplica per defecte quan no s'acorda el contrari), que és la més estesa. Si vols ajustar algun detall, tot el motor de regles és a `server/game.js`.

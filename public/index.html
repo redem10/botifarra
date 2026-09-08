@@ -117,21 +117,27 @@
     <div id="hand-cards" class="hand-cards"></div>
   </div>
 
-  <!-- Panell de cants -->
-  <div id="bid-panel" class="floating-panel" hidden>
-    <h3>Cants</h3>
-    <p id="bid-status" class="panel-sub"></p>
-    <div id="bid-options" class="bid-options"></div>
-  </div>
-
   <!-- Panell de tria de trumfo -->
   <div id="trump-panel" class="floating-panel" hidden>
     <h3>Tria el trumfo</h3>
+    <p id="trump-status" class="panel-sub"></p>
     <div class="suit-options">
       <button class="suit-btn" data-suit="oros">🪙 Oros</button>
       <button class="suit-btn" data-suit="copes">🍷 Copes</button>
       <button class="suit-btn" data-suit="espases">⚔️ Espases</button>
       <button class="suit-btn" data-suit="bastos">🪵 Bastos</button>
+      <button id="btn-botifarra" class="suit-btn botifarra-btn">🎖️ Botifarra (sense trumfo)</button>
+      <button id="btn-delegate" class="suit-btn delegate-btn">👉 Delegar al company</button>
+    </div>
+  </div>
+
+  <!-- Panell de dobles (Contro / Recontro / Sant Vicenç) -->
+  <div id="double-panel" class="floating-panel" hidden>
+    <h3 id="double-title">Contro</h3>
+    <p id="double-status" class="panel-sub"></p>
+    <div class="double-options">
+      <button id="btn-double-yes" class="btn btn-primary">Sí, cantar-lo!</button>
+      <button id="btn-double-no" class="btn btn-secondary">No, passar</button>
     </div>
   </div>
 
